@@ -1,12 +1,10 @@
 package cmd
 
 import (
-	"bytes"
-	"errors"
 	"control-mitsubishi-plc-r-kube/lib"
+	"errors"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -23,22 +21,24 @@ type PlcStartRec struct {
 }
 
 type PlcStartRecBytes struct {
-	Serial        []byte
-	Variety       []byte
-	ProductNumber []byte
-	MoveDirection []byte
-	MovePart      []byte
-	MoveMechanism []byte
+	Serial         []byte
+	Variety        []byte
+	ProductNumber  []byte
+	MoveDirection  []byte
+	MovePart       []byte
+	MoveMechanism  []byte
+	RecordingStart []byte
+	RecordingStop  []byte
 }
 
 // 20数byteのデータを、各パートごとに切り分けていくメソッドにしたい
 //https://syoshinsya.mydns.jp/syosinsya/MCprotocol.html
-func SetBytesToPlcPart(msg []byte, devices []*NisPlcMakerSetting, startDevNo int) (*PlcStartRecBytes, error) {
+func SetBytesToPlcPart(msg []byte, devices *NisPlcMakerSettings, startDevNo int) (*PlcStartRecBytes, error) {
 	psrb := &PlcStartRecBytes{}
-	for _, device := range devices {
+	for _, device := range devices.settings {
 		dataSize := device.DataSize * 2
 
-		_, devNo, err := GetDevNo(device.DeviceNumber)
+		devNo, err := GetDevNo(device.DeviceNumber)
 		if err != nil {
 			return nil, err
 		}
@@ -46,18 +46,22 @@ func SetBytesToPlcPart(msg []byte, devices []*NisPlcMakerSetting, startDevNo int
 		startIndex := (devNo - startDevNo) * 2
 
 		switch device.Content {
-		case "シリアルNo":
-			psrb.Serial = bytes.Trim(msg[startIndex:dataSize], "\x00")
-		case "品種":
-			psrb.Variety = bytes.Trim(msg[startIndex:dataSize], "\x00")
-		case "品番":
-			psrb.ProductNumber = msg[startIndex:dataSize]
-		case "動作方向":
-			psrb.MoveDirection = msg[startIndex:dataSize]
-		case "動作部位":
-			psrb.MovePart = msg[startIndex:dataSize]
-		case "動作機構":
-			psrb.MoveMechanism = msg[startIndex:dataSize]
+		case "recording_start":
+			psrb.RecordingStart = msg[startIndex:dataSize]
+		case "recording_stop":
+			psrb.RecordingStart = msg[startIndex:dataSize]
+			//case "serial_no":
+			//	psrb.Serial = bytes.Trim(msg[startIndex:dataSize], "\x00")
+			//case "variety":
+			//	psrb.Variety = bytes.Trim(msg[startIndex:dataSize], "\x00")
+			//case "product_no":
+			//	psrb.ProductNumber = msg[startIndex:dataSize]
+			//case "direction_of_movement":
+			//	psrb.MoveDirection = msg[startIndex:dataSize]
+			//case "part_of_movement":
+			//	psrb.MovePart = msg[startIndex:dataSize]
+			//case "movement_mechanism":
+			//	psrb.MoveMechanism = msg[startIndex:dataSize]
 		}
 	}
 	return psrb, nil
@@ -74,29 +78,17 @@ func (psr *PlcStartRec) SetReadDataStartRec(pb *PlcStartRecBytes) {
 	psr.MoveMechanism = lib.Byte2Int(pb.MoveMechanism)
 }
 
-//とりあえず移植だけ。リファクタしたほうがいいかも
-func GetDevNo(strDevNo string) (strDev string, iDevNo int, err error) {
-	cArray := []string{}
+//一文字目がアルファベット、二文字目以降が数値という組み合わせ以外であればエラーを返す
+func GetDevNo(strDevNo string) (iDevNo int, err error) {
 	iDevNo = 0
-	bFlag := false
-	for i, v := range strDevNo {
-		sv := string(v)
-		isMatch, _ := regexp.MatchString(`^[a-fA-F\\b]+$`, sv)
-		if isMatch {
-			cArray = append(cArray, sv)
-		} else {
-			if len(cArray) > 0 {
-				str := strDevNo[i : len(strDevNo)-len(cArray)]
-				iDevNo, _ = strconv.Atoi(str)
-			} else {
-				bFlag = true
-				return "", 0, errors.New("デバイス番号エラー")
-			}
-			break
-		}
+	m, _ := regexp.MatchString(`^[a-fA-F\\b]+$`, strDevNo[0:1])
+	if !m {
+		return 0, errors.New("デバイス番号エラー")
 	}
-	if !bFlag {
-		strDev = strings.Join(cArray, "")
+	devNo, err := strconv.Atoi(strDevNo[1:])
+	if err != nil {
+		return 0, errors.New("デバイス番号エラー")
 	}
-	return strDev, iDevNo, nil
+
+	return devNo, nil
 }

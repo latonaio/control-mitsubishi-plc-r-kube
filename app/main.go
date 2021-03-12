@@ -11,24 +11,23 @@ import (
 	"time"
 )
 
-
 func main() {
 	errCh := make(chan error, 1)
 	ctx, cancel := context.WithCancel(context.Background())
-	cfg,err := config.New()
+	cfg, err := config.New()
 	if err != nil {
 		errCh <- err
 	}
 	defer cancel()
-	go listen(ctx, 2*time.Second,errCh)
-	s := pkg.New(ctx,cfg)
+	go listen(ctx, 2*time.Second, errCh, cfg)
+	s := pkg.New(ctx, cfg)
 	go s.Start(errCh)
 
 	quitC := make(chan os.Signal, 1)
 	signal.Notify(quitC, syscall.SIGTERM, os.Interrupt)
 
 	select {
-	case err := <- errCh:
+	case err := <-errCh:
 		cancel()
 		panic(err)
 	case <-quitC:
@@ -37,10 +36,10 @@ func main() {
 	}
 }
 
-func listen(ctx context.Context,interval time.Duration,errCh chan error) {
+func listen(ctx context.Context, interval time.Duration, errCh chan error, cfg *config.Config) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	err := cmd.ReadCombPlc(ctx,"targetAddr","targetPort")
+	err := cmd.ReadCombPlc(ctx, cfg)
 	if err != nil {
 		errCh <- err
 	}
@@ -49,11 +48,10 @@ func listen(ctx context.Context,interval time.Duration,errCh chan error) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			err := cmd.ReadCombPlc(ctx,"targetAddr","targetPort")
+			err := cmd.ReadCombPlc(ctx, cfg)
 			if err != nil {
 				errCh <- err
 			}
 		}
 	}
 }
-

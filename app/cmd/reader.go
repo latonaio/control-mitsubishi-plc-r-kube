@@ -3,12 +3,16 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"control-mitsubishi-plc-r-kube/config"
+	"control-mitsubishi-plc-r-kube/kanban"
 	"encoding/hex"
 	"fmt"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
 	"log"
 	"math"
-	"control-mitsubishi-plc-r-kube/kanban"
 	"net"
+	"os"
 	"sync"
 
 	"control-mitsubishi-plc-r-kube/lib"
@@ -16,10 +20,30 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	REQUEST_SUBHEADER  = "5000"
+	RESPONSE_SUBHEADER = "D000"
+
+	HOST_STATION_NO_           = "00"
+	NETWORK_NO_TO_HOST_STATION = "00"
+	PC_NO_TO_HOST_STATION      = "FF"
+	TARGET_IO_UNIT_NO          = "FF03"
+	BULK_READ_CMD              = "0104"
+	SUB_CMD                    = "0000"
+	WATCH_TIMER                = "1000"
+)
+
+type NisPlcMakerSettings struct {
+	settings []*NisPlcMakerSetting `yaml:"settings"`
+}
+
 type NisPlcMakerSetting struct {
-	Content      string
-	DataSize     int    // データサイズ(word単位)
-	DeviceNumber string // デバイス番号
+	Content      string `yaml:"strContent"`
+	DataMode     int    `yaml:"iDataMode"`
+	DataSize     int    `yaml:"iDataSize"`
+	DeviceNumber string `yaml:"strDevNo"`
+	IO           int    `yaml:"iReadWrite"`
+	FlowNumber   int    `yaml:"iFlowNo"`
 }
 
 var rcvBufferPool = &sync.Pool{
@@ -28,71 +52,106 @@ var rcvBufferPool = &sync.Pool{
 	},
 }
 
-func NewNisPlcMakerSetting(content string, dataSize int, deviceNumber string) *NisPlcMakerSetting {
-	return &NisPlcMakerSetting{
-		Content:      content,
-		DataSize:     dataSize,
-		DeviceNumber: deviceNumber,
+func LoadPlcSettings(cfg *config.Config) (*NisPlcMakerSettings, error) {
+	f, err := os.Open(cfg.YamlPath)
+	if err != nil {
+		return nil, err
 	}
+	defer f.Close()
+	settings := &NisPlcMakerSettings{}
+	b, err := ioutil.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+	if err := yaml.Unmarshal(b, settings); err != nil {
+		return nil, err
+	}
+
+	return settings, nil
 }
 
-func ReadCombPlc(ctx context.Context, targetAddress, targetPort string) error {
-	pc := []*NisPlcMakerSetting{
-		NewNisPlcMakerSetting("シリアルNo", 16, "D8000"),
-		NewNisPlcMakerSetting("品種", 16, "D8020"),
+func ReadCombPlc(ctx context.Context, cfg *config.Config) error {
+	pcs, err := LoadPlcSettings(cfg)
+	if err != nil {
+		return err
 	}
 	pClient := &PlcClient{}
-	client, err := pClient.NewClient(targetAddress, targetPort)
+	client, err := pClient.NewClient(cfg.Server.Addr, cfg.Server.Port)
 	if err != nil {
 		return err
 	}
 	errCh := make(chan error, 1)
 	go func() {
 		initReceiveStream()
-		iStartDevNo, err := DoWorkReadStart(client.Conn(), pc)
+		iStartDevNo, err := DoWorkReadStart(client.Conn(), pcs)
 		if err != nil {
 			errCh <- err
+			return
 		}
 		readBuff := make([]byte, 30)
 		readLen, err := client.Read(readBuff)
 		resp := readBuff[:readLen]
 
-		// 検査開始要求命令が出ていなかったらskip
+		// レジスタにデータがなければskip
 		if !CheckReadData(resp) {
 			log.Print("no start signal get. skip")
 			errCh <- err
+			return
 		}
 
 		resp = resp[11:]
 		if !CheckIncReadData(resp, readLen) {
 			errCh <- errors.New("CheckIncReadData Err")
+			return
 		}
 
-		pb, err := SetBytesToPlcPart(resp, pc, iStartDevNo)
+		pb, err := SetBytesToPlcPart(resp, pcs, iStartDevNo)
 		if err != nil {
 			errCh <- err
+			return
 		}
 
-		psr := &PlcStartRec{}
-		psr.SetReadDataStartRec(pb)
-		kanbanReq := map[string]interface{}{
-			"Serial":         psr.Serial,
-			"Variety":        psr.Variety,
-			"ProductNumber":  psr.ProductNumber,
-			"MoveDirection":  psr.MoveDirection,
-			"MovePart":       psr.MovePart,
-			"MoveMechanism":  psr.MoveMechanism,
-			"InspectionDate": psr.InspectionDate,
+		recordStart := lib.Byte2Int(pb.RecordingStart)
+		if recordStart == 1 {
+			kanbanReq := map[string]interface{}{
+				"status": 0,
+			}
+
+			err = kanban.WriteKanban(ctx, kanbanReq)
+			if err != nil {
+				errCh <- err
+			}
+			return
 		}
 
-		err = kanban.WriteKanban(ctx, kanbanReq)
-		if err != nil {
-			errCh <- err
+		recordStop := lib.Byte2Int(pb.RecordingStop)
+		if recordStop == 1 {
+			kanbanReq := map[string]interface{}{
+				"status": 1,
+			}
+
+			err = kanban.WriteKanban(ctx, kanbanReq)
+			if err != nil {
+				errCh <- err
+			}
+			return
 		}
+		//psr := &PlcStartRec{}
+		//psr.SetReadDataStartRec(pb)
+		//kanbanReq := map[string]interface{}{
+		//	"Serial":         psr.Serial,
+		//	"Variety":        psr.Variety,
+		//	"ProductNumber":  psr.ProductNumber,
+		//	"MoveDirection":  psr.MoveDirection,
+		//	"MovePart":       psr.MovePart,
+		//	"MoveMechanism":  psr.MoveMechanism,
+		//	"InspectionDate": psr.InspectionDate,
+		//}
+
 	}()
 
 	select {
-	case err := <- errCh:
+	case err := <-errCh:
 		return err
 	default:
 		return nil
@@ -106,49 +165,32 @@ func initReceiveStream() {
 
 // plcにI/O命令を書き込んでる。今回は読み込みだけでOKなのでコマンドは固定
 func CreateSendHeader(startDevNum int, writeLen int) string {
-	// subheader
-	subHeader := "5000"
-	//ネットワーク番号
-	netNum := fmt.Sprintf("%X", 0)
-	//PC番号
-	pcNum := fmt.Sprintf("%X", 0xFF)
-	//要求先ユニットI/O番号
-	io := fmt.Sprintf("%X", 0x3FF)
-	//要求先ユニット局番号
-	unit := fmt.Sprintf("%X", 0)
-	//要求データ長
-	dataLen := fmt.Sprintf("%X", 12)
-	//CPU監視タイマ
-	cpuTimer := fmt.Sprintf("%X", 0x1)
-	//コマンド
-	cmd := fmt.Sprintf("%X", 0x0401)
-	//サブコマンド
-	subCmd := fmt.Sprintf("%X", 0x00)
-	//要求データ部
-	startDev := fmt.Sprintf("%X", startDevNum)
-	wLen := fmt.Sprintf("%X", writeLen)
+	s := lib.GetBytesFrom32bitWithLE(int64(startDevNum))
+	s[3] = byte(0xA8)
+	startDev := fmt.Sprintf("%X", s)
+	wLen := fmt.Sprintf("%X", lib.GetBytesFrom8bitWithLE(int64(writeLen))[0:2])
+	dataLen := fmt.Sprintf("%X", len(WATCH_TIMER+BULK_READ_CMD+SUB_CMD+startDev+wLen))
 
-	return subHeader +
-		netNum +
-		pcNum +
-		io +
-		unit +
+	return REQUEST_SUBHEADER +
+		NETWORK_NO_TO_HOST_STATION +
+		PC_NO_TO_HOST_STATION +
+		TARGET_IO_UNIT_NO +
+		HOST_STATION_NO_ +
 		dataLen +
-		cpuTimer +
-		cmd +
-		subCmd +
+		WATCH_TIMER +
+		BULK_READ_CMD +
+		SUB_CMD +
 		startDev +
 		wLen
-
 }
 
 //検査開始要求がレジスタに書き込まれてないか常時チェックする
-func DoWorkReadStart(conn *net.TCPConn, pc []*NisPlcMakerSetting) (int, error) {
+func DoWorkReadStart(conn *net.TCPConn, pc *NisPlcMakerSettings) (int, error) {
 	iStartDevNo := math.MaxInt32
 	iEndDevNo := math.MinInt32
 
-	for _, device := range pc {
-		_, iDevNo, err := GetDevNo(device.DeviceNumber)
+	for _, device := range pc.settings {
+		iDevNo, err := GetDevNo(device.DeviceNumber)
 		if err != nil {
 			return -1, err
 		}

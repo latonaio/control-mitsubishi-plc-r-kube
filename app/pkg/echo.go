@@ -2,9 +2,9 @@ package pkg
 
 import (
 	"context"
-	"fmt"
 	"control-mitsubishi-plc-r-kube/config"
 	"control-mitsubishi-plc-r-kube/kanban"
+	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo"
@@ -33,8 +33,8 @@ func New(ctx context.Context, cfg *config.Config) Server {
 
 	// use echo default logger
 	e.Use(middleware.Logger())
-	e.GET("/rec/start",StartRec)
-	e.GET("/rec/stop",StopRec)
+	e.GET("/rec/start", StartRec)
+	e.GET("/rec/stop", StopRec)
 	return &server{
 		Server:  e,
 		Context: ctx,
@@ -54,23 +54,22 @@ func (s *server) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-
 func StartRec(c echo.Context) error {
 	data := map[string]interface{}{
-		"status":0,
+		"status": 0,
 	}
-	if err := kanban.WriteKanban(c.Request().Context(),data);err != nil {
+	if err := kanban.WriteKanban(c.Request().Context(), data); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK,"ok")
+	return c.JSON(http.StatusOK, "ok")
 }
 
 func StopRec(c echo.Context) error {
 	data := map[string]interface{}{
-		"status":1,
+		"status": 1,
 	}
-	if err := kanban.WriteKanban(c.Request().Context(),data);err != nil {
+	if err := kanban.WriteKanban(c.Request().Context(), data); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK,"ok")
+	return c.JSON(http.StatusOK, "ok")
 }

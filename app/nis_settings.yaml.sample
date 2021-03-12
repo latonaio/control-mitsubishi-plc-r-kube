@@ -1,0 +1,7 @@
+- settings:
+    - strContent: "sample"
+      iDataMode: 0
+      iDataSize: 0
+      strDevNo: x0000
+      iReadWrite: 0
+      iFlowNo: 0

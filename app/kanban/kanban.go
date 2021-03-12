@@ -5,14 +5,14 @@ import (
 	"context"
 )
 
-func WriteKanban(ctx context.Context,data map[string]interface{}) error {
-	client,err := msclient.NewKanbanClient(ctx)
+func WriteKanban(ctx context.Context, data map[string]interface{}) error {
+	client, err := msclient.NewKanbanClient(ctx)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 	metadata := msclient.SetMetadata(data)
-	req,err := msclient.NewOutputData(metadata)
+	req, err := msclient.NewOutputData(metadata)
 	if err != nil {
 		return err
 	}
