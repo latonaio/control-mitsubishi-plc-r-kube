@@ -7,7 +7,7 @@ ENV GOPRIVATE "bitbucket.org/latonaio"
 
 WORKDIR /go/src/bitbucket.org/latonaio
 
-COPY go.mod .
+COPY ./app/go.mod .
 
 RUN git config --global url."git@bitbucket.org:".insteadOf "https://bitbucket.org/"
 
