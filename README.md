@@ -65,7 +65,7 @@ settings:
 ```
 
 
-####設定手順
+#### 設定手順
 ```shell
 mv nis_settings.yaml.sample nis_settings.yaml
 
@@ -74,5 +74,5 @@ mv nis_settings.yaml.sample nis_settings.yaml
 cp nis_settings.yaml /var/lib/aion/default/config/nis_setting.yaml
 ```
 
-##関連するマイクロサービス
+## 関連するマイクロサービス
 control-mitsubishi-plc-w-kube
