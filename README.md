@@ -3,14 +3,6 @@
 
 メッセージの送受信方法およびフォーマットはMCプロトコルに準じています。
 
-### 動作環境
-
-* OS: Linux
-* CPU: Intel64/AMD64/ARM64
-
-### 対応している接続方式
-* Ethernet接続
-
 ## MCプロトコル
 三菱電機製レジスタに採用されている、三菱電機独自のプロトコルです。
 
@@ -20,13 +12,24 @@
 [MCプロトコルのマニュアル（三菱電機のHPに遷移します）](https://www.mitsubishielectric.co.jp/fa/download/search.do?mode=keymanual&q=sh080003)
 
 
-## Input
+## 1.動作環境
+
+* OS: Linux
+* CPU: Intel64/AMD64/ARM64
+
+## 2.対応している接続方式
+* Ethernet接続
+
+
+## 3.IO
+
+### Input
 PLCのレジスタへの読み取りを定期実行し、16進数のバイナリで構成された電文を取得します。
 
-## Output
+### Output
 電文の内容を元にkanbanへデータの投入を行います。
 
-## PLCの読み取り
+## 4.PLCの読み取り
 ### 電文フォーマット仕様
 読み取りの仕様は下記の通りです。
 
@@ -74,5 +77,5 @@ mv nis_settings.yaml.sample nis_settings.yaml
 cp nis_settings.yaml /var/lib/aion/default/config/nis_setting.yaml
 ```
 
-## 関連するマイクロサービス
+## 6.関連するマイクロサービス
 control-mitsubishi-plc-w-kube
