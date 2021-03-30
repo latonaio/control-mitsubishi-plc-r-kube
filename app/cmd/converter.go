@@ -50,18 +50,6 @@ func SetBytesToPlcPart(msg []byte, devices *NisPlcMakerSettings, startDevNo int)
 			psrb.RecordingStart = msg[startIndex:dataSize]
 		case "recording_stop":
 			psrb.RecordingStart = msg[startIndex:dataSize]
-			//case "serial_no":
-			//	psrb.Serial = bytes.Trim(msg[startIndex:dataSize], "\x00")
-			//case "variety":
-			//	psrb.Variety = bytes.Trim(msg[startIndex:dataSize], "\x00")
-			//case "product_no":
-			//	psrb.ProductNumber = msg[startIndex:dataSize]
-			//case "direction_of_movement":
-			//	psrb.MoveDirection = msg[startIndex:dataSize]
-			//case "part_of_movement":
-			//	psrb.MovePart = msg[startIndex:dataSize]
-			//case "movement_mechanism":
-			//	psrb.MoveMechanism = msg[startIndex:dataSize]
 		}
 	}
 	return psrb, nil

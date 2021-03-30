@@ -39,7 +39,6 @@ type NisPlcMakerSettings struct {
 
 type NisPlcMakerSetting struct {
 	Content      string `yaml:"strContent"`
-	DataMode     int    `yaml:"iDataMode"`
 	DataSize     int    `yaml:"iDataSize"`
 	DeviceNumber string `yaml:"strDevNo"`
 	IO           int    `yaml:"iReadWrite"`
