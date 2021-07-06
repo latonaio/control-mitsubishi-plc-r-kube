@@ -1,49 +1,46 @@
 # control-mitsubishi-plc-r-kube
-三菱電機製のPLCのレジスタに登録されたメッセージを読み込むマイクロサービスです。
-
+## 概要
+control-mitsubishi-plc-r-kubeは、三菱電機製のPLCのレジスタに登録されたメッセージを読み込むマイクロサービスです。
 メッセージの送受信方法およびフォーマットはMCプロトコルに準じています。
 
-## MCプロトコル
+### MCプロトコルとは
 三菱電機製レジスタに採用されている、三菱電機独自のプロトコルです。
-
 16進数のバイナリで構成された電文を送受信し、レジスタに対して操作を行うメッセージングプロトコルです。
-
-
 [MCプロトコルのマニュアル（三菱電機のHPに遷移します）](https://www.mitsubishielectric.co.jp/fa/download/search.do?mode=keymanual&q=sh080003)
 
 
-## 1.動作環境
-
+## 動作環境
+動作には以下の環境であることを前提とします。
 * OS: Linux
 * CPU: Intel64/AMD64/ARM64
+最低限スペック
+* CPU: 2 core
+* memory: 4 GB
 
-## 2.対応している接続方式
+### 対応している接続方式
 * Ethernet接続
 
 
-## 3.IO
-
+## I/O
 ### Input
 PLCのレジスタへの読み取りを定期実行し、16進数のバイナリで構成された電文を取得します。
 
 ### Output
 電文の内容を元にkanbanへデータの投入を行います。
 
-## 4.PLCの読み取り
+## セットアップ
 ### 電文フォーマット仕様
-読み取りの仕様は下記の通りです。
-
-対応フォーマット：3Eフレーム（固定）
-接続先ネットワーク：マルチドロップ局（固定）
-読み取り方式：バイト単位の一括読み取り（固定）
-自局番号：00（固定）
+PLCの読み取りの仕様は下記の通りです。
+* 対応フォーマット：3Eフレーム（固定）
+* 接続先ネットワーク：マルチドロップ局（固定）
+* 読み取り方式：バイト単位の一括読み取り（固定）
+* 自局番号：00（固定）
 
 ### デバイス番号
 読み取るデバイスのデバイス番号はyamlファイルで設定が可能です。
-
 yamlファイルは`/var/lib/aion/default/config/`へ設置してください。
 
-#### 書き方
+### yamlファイルの書き方
 ```
 strContent: デバイス名
 iDataSize: データ長
@@ -67,15 +64,14 @@ settings:
     iFlowNo: 0
 ```
 
-
-#### 設定手順
+### セットアップ手順
 ```shell
 mv nis_settings.yaml.sample nis_settings.yaml
 
-# nis_settings.yamlを書き換え
+# nis_settings.yamlを上記のように書き換え
 
 cp nis_settings.yaml /var/lib/aion/default/config/nis_setting.yaml
 ```
 
-## 6.関連するマイクロサービス
-control-mitsubishi-plc-w-kube
+## 関連するマイクロサービス
+* [control-mitsubishi-plc-w-kube](https://github.com/latonaio/control-mitsubishi-plc-w-kube)
