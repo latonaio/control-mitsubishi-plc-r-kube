@@ -76,4 +76,4 @@ cp nis_settings.yaml /var/lib/aion/default/config/nis_setting.yaml
 ```
 
 ## 関連するマイクロサービス
-・[control-mitsubishi-plc-w-kube](git@github.com:latonaio/control-mitsubishi-plc-w-kube.git)  
+・[control-mitsubishi-plc-w-kube](git@github.com:latonaio/control-mitsubishi-plc-w-kube.git)   
